@@ -18,6 +18,7 @@ class Instagram:
         self.edge_options.add_argument("--headless")
         self.edge_options.add_argument("--mute-audio")
         self.edge_options.add_argument("--disable-gpu")
+        self.edge_options.add_argument("--no-sandbox")
         service = Service(os.path.join(BASE_DIR, '/usr/local/bin/msedgedriver'))
         self.edge_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         self.browser = webdriver.Edge(service=service, options=self.edge_options)
