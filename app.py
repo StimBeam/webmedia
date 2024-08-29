@@ -10,8 +10,9 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__, static_folder='website/static', template_folder='website')
 
+# Corrected Limiter initialization
 limiter = Limiter(
-    get_remote_address, 
+    key_func=get_remote_address, 
     app=app,
     default_limits=["3 per minute"]
 )
