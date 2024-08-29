@@ -1,9 +1,7 @@
-import time, pickle, os
-from pathlib import Path
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.edge.options import Options
 from selenium.webdriver.edge.service import Service
+from selenium.webdriver.edge.options import EdgeOptions
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -13,7 +11,7 @@ class Instagram:
     def __init__(self):
         self.username = "username"
         self.password = "password"
-        self.edge_options = Options()
+        self.edge_options = EdgeOptions()
         self.edge_options.use_chromium = True
         self.edge_options.add_argument("--headless")
         self.edge_options.add_argument("--mute-audio")
@@ -121,7 +119,6 @@ class Instagram:
             print(f"Error during login with cookies: {e}")
             return False
 
-
     def get_slide_media(self, data):
         media = []
         if "edge_sidecar_to_children" in data and "edges" in data["edge_sidecar_to_children"]:
@@ -154,7 +151,7 @@ class Instagram:
                     'cover': data['display_url'],
                 })
         return media
-    
+
     def get_instagram_data(self, data):
         try:
             item = data['data']['xdt_shortcode_media']
@@ -253,4 +250,3 @@ if __name__ == "__main__":
     insta_bot = Instagram()
     data = insta_bot.getData('C8UahW1Nx4y', True)
     print(data)
-
