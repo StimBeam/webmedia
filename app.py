@@ -13,7 +13,7 @@ app = Flask(__name__, static_folder='website/static', template_folder='website')
 limiter = Limiter(
     get_remote_address, 
     app=app,
-    default_limits=[]
+    default_limits=["3 per minute"]
 )
 
 RATE_LIMIT = 2
@@ -21,12 +21,10 @@ RATE_LIMIT_PERIOD = timedelta(minutes=15)
 
 lock = Lock()
 instagram = None
-application = app
 request_timestamps = []
 
 class Validator:
     tiktok_video_pattern = r'tiktok\.com/.*/video/(\d+)'
-    tiktok_photo_pattern = r'tiktok\.com/.*/photo/(\d+)'
     instagram_pattern = r'(?:https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/)([A-Za-z0-9_-]+)/?'
     facebook_pattern = r"(https?:\/\/)?(www\.|web\.)?facebook\.com\/(share\/[vr]\/\w+|[^\/]+\/videos\/\d+\/?|reel\/\d+)"
 
@@ -35,14 +33,6 @@ class Validator:
         video_match = re.search(Validator.tiktok_video_pattern, url)
         if video_match:
             return "TikTok Video", video_match.group(1)
-
-        """v1.0 depreciated
-
-        photo_match = re.search(Validator.tiktok_photo_pattern, url)
-        if photo_match:
-            return "TikTok Photo", photo_match.group(1)
-        
-        """
 
         insta_match = re.match(Validator.instagram_pattern, url)
         if insta_match:
@@ -55,7 +45,6 @@ class Validator:
 
 @app.route('/webmedia/api/', methods=['POST', 'GET'])
 @app.route('/api/', methods=['POST', 'GET'])
-@limiter.limit("3 per minute")
 def api():
     print('remote address: ', request.remote_addr)
 
@@ -68,14 +57,13 @@ def api():
     source, item_id = Validator.validate(url)
 
     if source == "Facebook":
-        facebook =Facebook()
+        facebook = Facebook()
         data, status = facebook.getVideo(url, cut)
         if status == 200:
             return jsonify({'success': True, 'data': data}), 200
-        return jsonify({'error': True, 'message': data['message'], 'error_message': data['error_message']}), status
+        return jsonify({'error': True, 'message': data.get('message', 'Unknown error'), 'error_message': data.get('error_message', 'Unknown error')}), status
     
     elif source == "Instagram":
-
         global instagram
         with lock:
             if not instagram:
@@ -85,7 +73,7 @@ def api():
             data, status = instagram.getData(item_id, cut)
             if status == 200:
                 return jsonify({'success': True, 'data': data}), 200
-            return jsonify({'error': True, 'message': data['message'], 'error_message': data['error_message']}), status
+            return jsonify({'error': True, 'message': data.get('message', 'Unknown error'), 'error_message': data.get('error_message', 'Unknown error')}), status
         else:
             return jsonify({'error': True, 'message': 'Invalid Instagram video URL'}), 400
     
@@ -95,22 +83,9 @@ def api():
             data, status = tiktok.get_videos()
             if status == 200:
                 return jsonify({'success': True, 'data': data}), 200
-            return jsonify({'error': True, 'message': data['message'], 'error_message': data['error_message']}), status
+            return jsonify({'error': True, 'message': data.get('message', 'Unknown error'), 'error_message': data.get('error_message', 'Unknown error')}), status
         else:
             return jsonify({'error': True, 'message': 'Invalid TikTok video URL'}), 400
-    
-    """v1.0 depreciated
-
-    elif source == "TikTok Photo":
-        if item_id:
-            data = TikTok.get_images(url, item_id, cut)
-            if "error" in data:
-                return jsonify({'error': True, 'message': 'server error', 'error_message': data['message']}), 500
-            return jsonify({'success': True, 'data': data}), 200
-        else:
-            return jsonify({'error': True, 'message': 'Invalid TikTok Photo URL'}), 400
-    
-    """
     
     return jsonify({'error': True, 'message': 'Unsupported URL'}), 400
 
@@ -122,16 +97,18 @@ def sleep():
     request_timestamps = [timestamp for timestamp in request_timestamps if now - timestamp < RATE_LIMIT_PERIOD]
     if len(request_timestamps) >= RATE_LIMIT:
         return jsonify(error=True, message="Too Many Requests", details="You have exceeded the rate limit. Please wait 15 minutes and try again."), 429
+    
     request_timestamps.append(now)
+
     try:
         if instagram:
             instagram.close()
             instagram = None
             return jsonify(success=True, message="Instagram instance closed and put to sleep."), 200
         else:
-            return jsonify(error=True, message="Instagram instance already close.", details="No active Instagram instance to close."), 404
+            return jsonify(error=True, message="Instagram instance already closed.", details="No active Instagram instance to close."), 404
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print("An error occurred: {str(e)}")
         return jsonify(error=True, message="An error occurred while closing Instagram instance", details=str(e)), 500
 
 @app.errorhandler(429)
@@ -152,5 +129,3 @@ def catch_all(path):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
